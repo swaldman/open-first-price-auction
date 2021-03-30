@@ -62,7 +62,12 @@ contract OpenFirstPriceAuction {
   }
 
   function secondsRemaining() public view returns (uint) {
-    return end_time - block.timestamp;
+    if ( end_time > block.timestamp ) {
+      return end_time - block.timestamp;
+    }
+    else {
+      return 0;
+    }
   }
 
   function bid( uint atoms ) public live payable {
