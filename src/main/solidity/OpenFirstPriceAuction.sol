@@ -89,8 +89,14 @@ contract OpenFirstPriceAuction {
     require(!announced, "The auction result can be announced only once!");
     require(address(listener) != address(0), "This auction has no listener to announce to.");
     announced = true;
-    listener.auctionCompleted( address(this), seller, current_bidder, current_bid );
-    emit AuctionAnnounced( seller, current_bidder, current_bid );
+    if ( current_bidder != address(0) ) {
+      listener.auctionCompleted( seller, current_bidder, current_bid );
+      emit AuctionCompleted( seller, current_bidder, current_bid );
+    }
+    else {
+      listener.auctionAborted( seller );
+      emit AuctionAborted( seller );
+    }
   }
 
   // withdrawals can be made at any time
@@ -157,5 +163,6 @@ contract OpenFirstPriceAuction {
   event BidAccepted( address indexed bidder, uint bidAmount, uint bidderBalance );
   event FundsWithdrawn( address indexed bidder, uint amountWithdrawn );
   event ProceedsClaimed( uint amountClaimed );
-  event AuctionAnnounced( address indexed seller, address indexed winner, uint winningBid );
+  event AuctionAborted( address indexed seller );
+  event AuctionCompleted( address indexed seller, address indexed winner, uint winningBid );
 }
