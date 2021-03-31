@@ -13,3 +13,9 @@ resolvers += ("snapshots" at "https://oss.sonatype.org/content/repositories/snap
 resolvers += ("Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/")
 
 ethcfgScalaStubsPackage := "com.mchange.sc.v1.auction.firstprice.contract"
+
+Test / ethcfgAutoDeployContracts := Seq( "TestAuctioneer" )
+
+Test / parallelExecution := false
+
+libraryDependencies += "org.specs2" %% "specs2-core" % "4.0.2" % "test"
