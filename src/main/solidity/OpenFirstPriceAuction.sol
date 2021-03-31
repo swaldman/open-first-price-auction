@@ -72,7 +72,7 @@ contract OpenFirstPriceAuction {
 
   function bid( uint atoms ) public live payable {
     require( atoms >= reserve, "Bid does not meet the reserve price." );
-    require( atoms >= current_bid, "Bid is no higher than the current leading bid." );
+    require( atoms > current_bid, "Bid is no higher than the current leading bid." );
     require( msg.sender != seller, "Seller address is forbidden from bidding." );
     current_bid = atoms;
     current_bidder = msg.sender;
