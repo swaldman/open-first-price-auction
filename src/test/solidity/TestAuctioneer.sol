@@ -3,9 +3,14 @@ pragma solidity ^0.8.1;
 import "../../main/solidity/OpenFirstPriceAuction.sol";
 
 contract TestAuctioneer is AuctionListener {
-  mapping( string => OpenFirstPriceAuction ) keyToAuction;
-  mapping( OpenFirstPriceAuction => string)  auctionToKey;
-  mapping( string => address )               keyToOwner;
+  mapping( string => OpenFirstPriceAuction ) public   keyToAuction;
+  mapping( OpenFirstPriceAuction => string ) public   auctionToKey;
+  mapping( string => address ) public                 keyToOwner;
+  mapping( string => OpenFirstPriceAuction[] ) public keyToPastAuctions;
+
+  function pastAuctionCount( string calldata key ) public view returns(uint256) {
+    return keyToPastAuctions[key].length;
+  }
 
   function sell( string calldata _key, IERC20 _token, uint _reserve, uint _duration ) public {
     require( nonemptyString(_key), "The empty string cannot be auctioned. (It has the meaning 'no key' within this auctioneer." );
@@ -35,6 +40,7 @@ contract TestAuctioneer is AuctionListener {
     
     keyToOwner[key] = winner;
 
+    keyToPastAuctions[key].push(auction);
     keyToAuction[key] = OpenFirstPriceAuction(address(0));
     auctionToKey[auction] = "";
 
@@ -50,6 +56,7 @@ contract TestAuctioneer is AuctionListener {
     require( nonemptyString(key), "Notification is not from one of our live auctions." );
     assert( oldOwner == seller );
 
+    keyToPastAuctions[key].push(auction);
     keyToAuction[key] = OpenFirstPriceAuction(address(0));
     auctionToKey[auction] = "";
 
