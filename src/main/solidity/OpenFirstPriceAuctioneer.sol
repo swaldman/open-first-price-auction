@@ -9,7 +9,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   mapping( OpenFirstPriceAuction => uint256 ) public   auctionToKey;
   mapping( uint256 => OpenFirstPriceAuction[] ) public keyToPastAuctions;
 
-  function keyToOwner( uint256 _key ) internal virtual returns(address);
+  function keyToOwner( uint256 _key ) internal virtual view returns(address);
 
   function handleAuctionStarted( OpenFirstPriceAuction auction, address seller, uint256 key ) internal virtual;
 
@@ -23,11 +23,15 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   }
 
   function sell( uint256 _key, IERC20 _token, uint _reserve, uint _duration ) public {
+    sell( _key, _token, _reserve, _duration, 0 );
+  }
+  
+  function sell( uint256 _key, IERC20 _token, uint _reserve, uint _duration, uint maxAnnouncementFailures ) public {
     require( _key != 0, "The key 0 cannot be auctioned. (It has the meaning 'no key' within this auctioneer." );
     require( address(keyToAuction[_key]) == address(0), "An auction is already in progress for the specified key." );
     address currentOwner = keyToOwner(_key);
     require( currentOwner == msg.sender , "You can't sell a key owned by someone else!" );
-    OpenFirstPriceAuction auction = new OpenFirstPriceAuction( msg.sender, address(_token), _reserve, _duration, this );
+    OpenFirstPriceAuction auction = new OpenFirstPriceAuction( msg.sender, address(_token), _reserve, _duration, maxAnnouncementFailures, this );
     keyToAuction[_key] = auction;
     auctionToKey[auction] = _key;
 
@@ -51,6 +55,8 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
     auctionToKey[auction] = 0;
 
     handleAuctionCompleted( auction, seller, winner, key, winningBid );
+
+    require( keyToOwner( key ) == winner, "Ownership should be transferred to the winner in handleAuctionCompleted(), has not been!" );
 
     emit OwnershipTransfer( seller, winner, key, winningBid );
   }

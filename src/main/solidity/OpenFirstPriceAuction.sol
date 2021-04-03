@@ -32,9 +32,13 @@ contract OpenFirstPriceAuction {
 
   mapping( address => uint ) public holdings;
 
+  uint public maxAnnouncementFailures;
+  
+  uint public announcementFailures = 0;
+
   AuctionListener listener;
 
-  constructor( address _seller, address _token, uint _reserve, uint _duration, AuctionListener _listener ) {
+  constructor( address _seller, address _token, uint _reserve, uint _duration, uint _maxAnnouncementFailures, AuctionListener _listener ) {
     seller      = _seller;
     token       =  IERC20(_token);
     reserve     = _reserve;
@@ -42,7 +46,7 @@ contract OpenFirstPriceAuction {
     end_time    =  block.timestamp + _duration;
     listener    = _listener;
 
-    emit AuctionStarted( _seller, _token, _reserve, _duration, address(_listener) );
+    emit AuctionStarted( _seller, _token, _reserve, _duration, _maxAnnouncementFailures, address(_listener) );
   }
 
   modifier live {
@@ -61,6 +65,10 @@ contract OpenFirstPriceAuction {
 
   function isLive() public view returns (bool) {
     return !isDone();
+  }
+
+  function announcementFailed() public view returns (bool) {
+    return announcementFailures > maxAnnouncementFailures;
   }
 
   function secondsRemaining() public view returns (uint) {
@@ -82,43 +90,8 @@ contract OpenFirstPriceAuction {
   }
 
   function claimProceeds() public done {
-    require(!claimed, "The auction proceeds can be claimed only once!");
+    require( !announcementFailed(), "Announcement of this auction failed, preventing it from having any effect. Proceeds may be withdrawn by the buyer, not claimed by the seller." );
     require( msg.sender == seller, "Only the seller may call claimProceeds(), and only after the auction is done." );
-    _claimProceeds();
-  }
-
-  function announce() public done {
-    require(!announced, "The auction result can be announced only once!");
-    require(address(listener) != address(0), "This auction has no listener to announce to.");
-    announced = true;
-    if ( current_bidder != address(0) ) {
-      listener.auctionCompleted( seller, current_bidder, current_bid );
-      emit AuctionCompleted( seller, current_bidder, current_bid );
-    }
-    else {
-      listener.auctionAborted( seller );
-      emit AuctionAborted( seller );
-    }
-  }
-
-  // withdrawals can be made at any time
-  function withdraw() public { 
-    require( msg.sender != seller, "The seller must call claimProceeds(), only after the auction is done." );
-    uint excess;
-    if (msg.sender == current_bidder) {
-      excess = holdings[msg.sender] - current_bid;
-    }
-    else {
-      excess = holdings[msg.sender];
-    }
-    _withdrawToTransactor( excess );
-  }
-
-  function _usesEth() internal view returns (bool usesEth) {
-    usesEth = (address(token) == address(0));
-  }
-
-  function _claimProceeds() internal done {
     require(!claimed, "The proceeds of this auction have already been claimed.");
     claimed = true;
     holdings[current_bidder] = holdings[current_bidder] - current_bid;
@@ -130,6 +103,65 @@ contract OpenFirstPriceAuction {
       require( token.transferFrom( address(this), seller, current_bid ), "Disbursal of tokens to seller failed!" );
     }
     emit ProceedsClaimed( current_bid );
+  }
+
+  function announce() public done {
+    require(!announced, "The auction result can be successfully announced only once!");
+    require(!announcementFailed(), "Announcement of this auction has already failed.");
+    require(address(listener) != address(0), "This auction has no listener to announce to.");
+    if ( current_bidder != address(0) ) {
+      try listener.auctionCompleted( seller, current_bidder, current_bid ) {
+	announced = true;
+	emit AuctionCompleted( seller, current_bidder, current_bid );
+      }
+      catch Error(string memory errorMessage) {
+	++announcementFailures;
+	emit AnnouncementFailed( true, errorMessage, 0, "" );
+      }
+      catch Panic(uint panicCode) {
+	++announcementFailures;
+	emit AnnouncementFailed( true, "", panicCode, "" );
+      }
+      catch (bytes memory otherFailure) {
+	++announcementFailures;
+	emit AnnouncementFailed( true, "", 0, otherFailure );
+      }
+    }
+    else {
+      try listener.auctionAborted( seller ) {
+	announced = true;
+	emit AuctionAborted( seller );
+      }
+      catch Error(string memory errorMessage) {
+	++announcementFailures;
+	emit AnnouncementFailed( false, errorMessage, 0, "" );
+      }
+      catch Panic(uint panicCode) {
+	++announcementFailures;
+	emit AnnouncementFailed( false, "", panicCode, "" );
+      }
+      catch (bytes memory otherFailure) {
+	++announcementFailures;
+	emit AnnouncementFailed( false, "", 0, otherFailure );
+      }
+    }
+  }
+
+  // withdrawals can be made at any time
+  function withdraw() public { 
+    require( msg.sender != seller, "The seller must call claimProceeds(), only after the auction is complete and announced." );
+    uint excess;
+    if (msg.sender == current_bidder && !announcementFailed()) { // if announcement has failed, the bidder can withdraw his bid, as the auction was without effect
+      excess = holdings[msg.sender] - current_bid;
+    }
+    else {
+      excess = holdings[msg.sender];
+    }
+    _withdrawToTransactor( excess );
+  }
+
+  function _usesEth() internal view returns (bool usesEth) {
+    usesEth = (address(token) == address(0));
   }
 
   function _withdrawToTransactor( uint atoms ) internal {
@@ -165,7 +197,8 @@ contract OpenFirstPriceAuction {
   event BidAccepted( address indexed bidder, uint bidAmount, uint bidderBalance );
   event FundsWithdrawn( address indexed bidder, uint amountWithdrawn );
   event ProceedsClaimed( uint amountClaimed );
-  event AuctionStarted( address indexed seller, address indexed token, uint reserve, uint duration, address indexed listener);
+  event AuctionStarted( address indexed seller, address indexed token, uint reserve, uint duration, uint maxAnnouncementFailures, address indexed listener);
   event AuctionAborted( address indexed seller );
   event AuctionCompleted( address indexed seller, address indexed winner, uint winningBid );
+  event AnnouncementFailed( bool attemptComplete /* vs attemptAbort */, string errorMessage, uint panicCode, bytes otherFailure );
 }
