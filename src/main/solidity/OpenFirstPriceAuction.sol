@@ -84,6 +84,8 @@ contract OpenFirstPriceAuction {
     require( atoms >= reserve, "Bid does not meet the reserve price." );
     require( atoms > current_bid, "Bid is no higher than the current leading bid." );
     require( msg.sender != seller, "Seller address is forbidden from bidding." );
+    require( address(token) == address(0) || msg.value == 0, "Bids cannot include ETH when the auction numeraire is an ERC20 token." );
+      
     current_bid = atoms;
     current_bidder = msg.sender;
     _accept( atoms );

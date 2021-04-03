@@ -11,7 +11,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
 
 
   // abstract functions must be overridden by inheriting contracts
-  function owner( uint256 _key ) internal virtual view returns(address);
+  function keyOwner( uint256 _key ) internal virtual view returns(address);
 
   function handleAuctionStarted( OpenFirstPriceAuction auction, address seller, uint256 key ) internal virtual;
 
@@ -31,7 +31,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   function sell( uint256 _key, IERC20 _token, uint _reserve, uint _duration, uint maxAnnouncementFailures ) public {
     require( _key != 0, "The key 0 cannot be auctioned. (It has the meaning 'no key' within this auctioneer." );
     require( address(keyToAuction[_key]) == address(0), "An auction is already in progress for the specified key." );
-    address currentOwner = owner(_key);
+    address currentOwner = keyOwner(_key);
     require( currentOwner == msg.sender , "You can't sell a key owned by someone else!" );
     OpenFirstPriceAuction auction = new OpenFirstPriceAuction( msg.sender, address(_token), _reserve, _duration, maxAnnouncementFailures, this );
     keyToAuction[_key] = auction;
@@ -55,7 +55,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   function auctionCompleted( address seller, address winner, uint winningBid ) public override {
     OpenFirstPriceAuction auction = OpenFirstPriceAuction(msg.sender);
     uint256 key = auctionToKey[auction];
-    address oldOwner = owner(key);
+    address oldOwner = keyOwner(key);
 
     require( key != 0, "Notification is not from one of our live auctions." );
     assert( oldOwner == seller );
@@ -68,7 +68,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
 
     handleAuctionCompleted( auction, seller, winner, key, winningBid );
 
-    require( owner( key ) == winner, "Ownership should be transferred to the winner in handleAuctionCompleted(), has not been!" );
+    require( keyOwner( key ) == winner, "Ownership should be transferred to the winner in handleAuctionCompleted(), has not been!" );
 
     emit OwnershipTransfer( seller, winner, key, winningBid );
   }
@@ -76,7 +76,7 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   function auctionAborted( address seller ) public override {
     OpenFirstPriceAuction auction = OpenFirstPriceAuction(msg.sender);
     uint256 key = auctionToKey[auction];
-    address oldOwner = owner(key);
+    address oldOwner = keyOwner(key);
 
     require( key != 0, "Notification is not from one of our live auctions." );
     assert( oldOwner == seller );

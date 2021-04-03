@@ -11,7 +11,7 @@ contract TestAuctioneer is OpenFirstPriceAuctioneerUInt256 {
     keyToOwner[key] = msg.sender;
   }
 
-  function owner( uint256 _key ) internal override view returns(address) {
+  function keyOwner( uint256 _key ) internal override view returns(address) {
     return keyToOwner[_key];
   }
 
