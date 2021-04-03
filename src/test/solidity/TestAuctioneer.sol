@@ -1,73 +1,25 @@
 pragma solidity ^0.8.1;
 
-import "../../main/solidity/OpenFirstPriceAuction.sol";
+import "../../main/solidity/OpenFirstPriceAuctioneer.sol";
 
-contract TestAuctioneer is AuctionListener {
-  mapping( string => OpenFirstPriceAuction ) public   keyToAuction;
-  mapping( OpenFirstPriceAuction => string ) public   auctionToKey;
-  mapping( string => address ) public                 keyToOwner;
-  mapping( string => OpenFirstPriceAuction[] ) public keyToPastAuctions;
+contract TestAuctioneer is OpenFirstPriceAuctioneerUInt256 {
+  mapping( uint256 => address ) public keyToOwner;
 
-  function pastAuctionCount( string calldata key ) public view returns(uint256) {
-    return keyToPastAuctions[key].length;
+  function claim( uint256 key ) public {
+    address currentOwner = keyToOwner[key];
+    require( currentOwner == address(0) || currentOwner == msg.sender, "Cannot claim a key already owned by someone else." );
+    keyToOwner[key] = msg.sender;
   }
 
-  function sell( string calldata _key, IERC20 _token, uint _reserve, uint _duration ) public {
-    require( nonemptyString(_key), "The empty string cannot be auctioned. (It has the meaning 'no key' within this auctioneer." );
-    require( address(keyToAuction[_key]) == address(0), "An auction is already in progress for the specified key." );
-    address currentOwner = keyToOwner[_key];
-    bool newClaim = currentOwner == address(0);
-    require( newClaim || currentOwner == msg.sender , "You can't sell a key owned by someone else!" );
-    OpenFirstPriceAuction auction = new OpenFirstPriceAuction( msg.sender, address(_token), _reserve, _duration, this );
-    keyToAuction[_key] = auction;
-    auctionToKey[auction] = _key;
-    
-    if ( newClaim ) {
-      keyToOwner[_key] = msg.sender;
-      emit OwnershipClaimed( currentOwner, _key );
-    }
+  function owner( uint256 _key ) internal override view returns(address) {
+    return keyToOwner[_key];
   }
 
-  function auctionCompleted( address seller, address winner, uint winningBid ) public override {
-    OpenFirstPriceAuction auction = OpenFirstPriceAuction(msg.sender);
-    string memory key = auctionToKey[auction];
-    address oldOwner = keyToOwner[key];
+  function handleAuctionStarted( OpenFirstPriceAuction /*auction*/, address /*seller*/, uint256 /*key*/ ) internal override {}
 
-    require( nonemptyString(key), "Notification is not from one of our live auctions." );
-    assert( oldOwner == seller );
-    assert( winner != address(0) );
-    assert( winner != seller );
-    
+  function handleAuctionCompleted( OpenFirstPriceAuction /*auction*/, address /*seller*/, address winner, uint256 key, uint256 /*winningBid*/ ) internal override {
     keyToOwner[key] = winner;
-
-    keyToPastAuctions[key].push(auction);
-    keyToAuction[key] = OpenFirstPriceAuction(address(0));
-    auctionToKey[auction] = "";
-
-    emit OwnershipTransfer( seller, winner, key, winningBid );
   }
 
-  function auctionAborted( address seller ) public override {
-    OpenFirstPriceAuction auction = OpenFirstPriceAuction(msg.sender);
-    string memory key = auctionToKey[auction];
-    address oldOwner = keyToOwner[key];
-
-
-    require( nonemptyString(key), "Notification is not from one of our live auctions." );
-    assert( oldOwner == seller );
-
-    keyToPastAuctions[key].push(auction);
-    keyToAuction[key] = OpenFirstPriceAuction(address(0));
-    auctionToKey[auction] = "";
-
-    emit OwnershipRetained( seller, key );
-  }
-
-  function nonemptyString( string memory s ) pure private returns (bool) {
-    return bytes(s).length > 0;
-  }
-
-  event OwnershipClaimed( address indexed claimant, string key );
-  event OwnershipRetained( address indexed seller, string key );
-  event OwnershipTransfer( address indexed seller, address indexed buyer, string key, uint price );
+  function handleAuctionAborted( OpenFirstPriceAuction /*auction*/, address /*seller*/, uint256 /*key*/ ) internal override {}
 }

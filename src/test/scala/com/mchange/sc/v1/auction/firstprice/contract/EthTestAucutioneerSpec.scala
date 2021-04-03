@@ -10,8 +10,8 @@ import com.mchange.sc.v1.consuela.ethereum.stub.sol
 class EthTestAuctioneerSpec extends Specification with AutoSender { def is = sequential ^ s2"""
   A TestAuctioneer using ETH as numeraire...
      there should be no auction initially associated with a key                                                    ${e00}
+     the claimant of a new key should have become its initial owner                                                ${e05}
      should be able to sell a key, creating an auction using ETH as the numeraire.                                 ${e10}
-     the seller of the new key should have become its initial owner                                                ${e20}
      another sender should not be able to sell the same key                                                        ${e30}
      that other sender should not be able to bid on the key below its reserve                                      ${e40}
      that other sender should be able to bid on the key above its reserve                                          ${e50}
@@ -52,17 +52,18 @@ class EthTestAuctioneerSpec extends Specification with AutoSender { def is = seq
 
   val sender = (0 until 3).map( _ => fundedRandomSender())
 
-  val firstKey = "firstKey"
+  val firstKey = sol.UInt(1)
 
   def e00 = {
     testAuctioneer.view.keyToAuction( firstKey ) == sol.Address.Zero
   }
+  def e05 = {
+    testAuctioneer.txn.claim( firstKey )( sender(0) )
+    testAuctioneer.view.keyToAuction( firstKey ) != sender(0).address
+  }
   def e10 = {
     testAuctioneer.txn.sell( firstKey, sol.Address.Zero, sol.UInt256(0.02 ether), sol.UInt256(60) )( sender(0) )
     testAuctioneer.view.keyToAuction( firstKey ) != sol.Address.Zero
-  }
-  def e20 = {
-    testAuctioneer.view.keyToAuction( firstKey ) != sender(0).address
   }
   def e30 = {
     try {
