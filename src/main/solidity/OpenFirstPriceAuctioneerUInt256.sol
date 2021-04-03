@@ -9,6 +9,8 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
   mapping( OpenFirstPriceAuction => uint256 ) public   auctionToKey;
   mapping( uint256 => OpenFirstPriceAuction[] ) public keyToPastAuctions;
 
+
+  // abstract functions must be overridden by inheriting contracts
   function owner( uint256 _key ) internal virtual view returns(address);
 
   function handleAuctionStarted( OpenFirstPriceAuction auction, address seller, uint256 key ) internal virtual;
@@ -40,6 +42,16 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
     emit AuctionStarted( address(auction), msg.sender, _key ); 
   }
 
+  // since concrete implementing contracts likely "freeze" keys during auctions,
+  // it's important there be some way of unfreezing them if an auction fails due to announcement failures.
+  function retireBrokenAuction( uint256 key ) public {
+    OpenFirstPriceAuction auction = keyToAuction[key];
+    require( address(auction) != address(0), "There is no auction actve for the key requested retired." );
+    require( auction.announcementFailed(), "The auction in not broken; announcementFailed() has not been triggered." );
+
+    _retireAuction( key, auction );
+  }
+
   function auctionCompleted( address seller, address winner, uint winningBid ) public override {
     OpenFirstPriceAuction auction = OpenFirstPriceAuction(msg.sender);
     uint256 key = auctionToKey[auction];
@@ -49,10 +61,10 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
     assert( oldOwner == seller );
     assert( winner != address(0) );
     assert( winner != seller );
-    
-    keyToPastAuctions[key].push(auction);
-    keyToAuction[key] = OpenFirstPriceAuction(address(0));
-    auctionToKey[auction] = 0;
+
+    // we've got to ensure the is visibly over BEFORE handleAuctionCompleted,
+    // so that function can safely effectuate transfers
+    _retireAuction( key, auction );
 
     handleAuctionCompleted( auction, seller, winner, key, winningBid );
 
@@ -69,13 +81,18 @@ abstract contract OpenFirstPriceAuctioneerUInt256 is AuctionListener {
     require( key != 0, "Notification is not from one of our live auctions." );
     assert( oldOwner == seller );
 
-    keyToPastAuctions[key].push(auction);
-    keyToAuction[key] = OpenFirstPriceAuction(address(0));
-    auctionToKey[auction] = 0;
+    _retireAuction( key, auction );
 
     handleAuctionAborted( auction, seller, key );
 
     emit OwnershipRetained( seller, key );
+  }
+
+  function _retireAuction( uint256 key, OpenFirstPriceAuction auction ) internal {
+    keyToPastAuctions[key].push(auction);
+    keyToAuction[key] = OpenFirstPriceAuction(address(0));
+    auctionToKey[auction] = 0;
+
   }
 
   event AuctionStarted( address indexed auction, address indexed seller, uint256 key );
