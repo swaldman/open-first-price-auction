@@ -41,6 +41,8 @@ contract OpenFirstPriceAuction {
     current_bid = _reserve - 1;
     end_time    =  block.timestamp + _duration;
     listener    = _listener;
+
+    emit AuctionStarted( _seller, _token, _reserve, _duration, address(_listener) );
   }
 
   modifier live {
@@ -163,6 +165,7 @@ contract OpenFirstPriceAuction {
   event BidAccepted( address indexed bidder, uint bidAmount, uint bidderBalance );
   event FundsWithdrawn( address indexed bidder, uint amountWithdrawn );
   event ProceedsClaimed( uint amountClaimed );
+  event AuctionStarted( address indexed seller, address indexed token, uint reserve, uint duration, address indexed listener);
   event AuctionAborted( address indexed seller );
   event AuctionCompleted( address indexed seller, address indexed winner, uint winningBid );
 }
