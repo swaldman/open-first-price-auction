@@ -1,6 +1,6 @@
 pragma solidity ^0.8.1;
 
-import "../../main/solidity/OpenFirstPriceAuctioneer.sol";
+import "../../main/solidity/OpenFirstPriceAuctioneerUInt256.sol";
 
 contract TestAuctioneer is OpenFirstPriceAuctioneerUInt256 {
   mapping( uint256 => address ) public keyToOwner;
