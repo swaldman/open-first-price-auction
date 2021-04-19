@@ -14,7 +14,7 @@ resolvers += ("Typesafe repository" at "https://repo.typesafe.com/typesafe/relea
 
 ethcfgScalaStubsPackage := "com.mchange.sc.v1.auction.firstprice.contract"
 
-Test / ethcfgAutoDeployContracts := Seq( "TestAuctioneer" )
+// Test / ethcfgAutoDeployContracts := Seq( "TestAuctioneer" )
 
 Test / parallelExecution := false
 

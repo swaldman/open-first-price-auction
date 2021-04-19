@@ -38,8 +38,11 @@ class EthTestAuctioneerSpec extends Specification with AutoSender { def is = seq
    * 
    * This is set-up via `Test / ethcfgAutoDeployContracts` in build.sbt
    * 
+   * NOT ANY MORE... uses sbt-ethereum 0.6.0 deploy+ functions instead
    */ 
-  val testAuctioneer = TestAuctioneer( TestSender(0).contractAddress(0) )
+  // val testAuctioneer = TestAuctioneer( TestSender(0).contractAddress(0) )
+
+  val testAuctioneer = TestAuctioneer.deploy()
 
   def fundedRandomSender() : stub.Sender.Signing = { // yuk
     import scala.concurrent.Await
